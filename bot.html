@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Twitch Chat Bot</title>
+  <link rel="stylesheet" href="bot.css">
+</head>
+<body>
+
+<header>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="#9147ff" aria-hidden="true">
+    <path d="M2.149 0 .537 4.119v16.836h5.731V24l4.119-3.045h3.582l7.164-7.164V0H2.149zm18.418
+             13.209-2.985 2.985H13.8l-2.612 2.612v-2.612H6.866V1.343h13.701v11.866zm-2.985-7.761
+             v6.418H16.24V5.448h1.342zm-3.731 0v6.418h-1.343V5.448h1.343z"/>
+  </svg>
+  <h1>Twitch Chat Bot</h1>
+  <span id="statusBadge">● Disconnected</span>
+</header>
+
+<div class="layout">
+<aside>
+
+<!-- 1. Connection -->
+<div class="panel" id="panel-connection">
+  <div class="panel-title" onclick="togglePanel('connection')">
+    Connection <span class="chevron">▾</span>
+  </div>
+  <div class="panel-body">
+
+    <!-- Step 1 -->
+    <div class="field">
+      <label>Bot Username</label>
+      <input id="inUser" type="text" placeholder="yourbot"
+             autocomplete="off" spellcheck="false"
+             oninput="saveField('twitchbot_user', this.value)">
+    </div>
+
+    <!-- Step 2 -->
+    <div class="field">
+      <label>
+        Client ID
+        <a href="https://dev.twitch.tv/console/apps/create"
+           target="_blank" rel="noopener">register app ↗</a>
+      </label>
+      <input id="inClientId" type="text"
+             placeholder="from dev.twitch.tv/console"
+             autocomplete="off" spellcheck="false"
+             oninput="saveField('twitchbot_client_id', this.value)">
+    </div>
+
+    <!-- Step 3 — button triggers device flow -->
+    <button class="btn-full btn-green"
+            onclick="TwitchAuth.startDeviceFlow()">
+      Authorise with Twitch
+    </button>
+
+    <!--
+      Device code box — hidden until startDeviceFlow() shows it.
+      The user visits twitch.tv/activate and enters this code.
+    -->
+    <div id="authCodeWrap" hidden>
+
+      <p class="auth-code-intro" style="margin-top:10px">
+        Log into Twitch <strong>as the bot account</strong>, then go to:<br>
+        <a id="authVerifyLink"
+           href="https://www.twitch.tv/activate"
+           target="_blank" rel="noopener">twitch.tv/activate ↗</a>
+        and enter this code:
+      </p>
+
+      <div id="authUserCode">--------</div>
+
+      <div class="auth-code-footer">
+        <span id="authExpiry"></span>
+        <button class="btn-xs" onclick="TwitchAuth.copyCode()">
+          📋 Copy code
+        </button>
+      </div>
+
+      <button class="btn-full btn-muted" style="margin-top:8px"
+              onclick="TwitchAuth.cancelFlow()">
+        Cancel
+      </button>
+
+    </div>
+
+    <!-- Status: requesting / waiting / success / error -->
+    <div id="authStatus" class="auth-status"></div>
+
+    <!--
+      OAuth Token — filled automatically by the device flow above.
+      Still shown so the user can see it was filled and can paste
+      a manual token if they prefer.
+    -->
+    <div class="field" style="margin-top:10px">
+      <label>OAuth Token <span id="tokenStatus"></span></label>
+      <input id="inOauth" type="password"
+             placeholder="filled automatically after Authorise"
+             autocomplete="off" spellcheck="false">
+    </div>
+
+    <!-- Step 4 -->
+    <div class="field">
+      <label>Channel</label>
+      <input id="inChan" type="text" placeholder="channelname"
+             autocomplete="off" spellcheck="false"
+             oninput="saveField('twitchbot_chan', this.value)">
+    </div>
+
+    <!-- Optional messages -->
+    <div class="field">
+      <label>
+        Ready message
+        <span class="opt">sent when bot connects</span>
+      </label>
+      <input id="inReadyMsg" type="text"
+             placeholder="🤖 Bot is ready!"
+             autocomplete="off" spellcheck="false"
+             oninput="saveField('twitchbot_ready_msg', this.value)">
+    </div>
+
+    <div class="field">
+      <label>
+        Exit message
+        <span class="opt">sent when window closes</span>
+      </label>
+      <input id="inExitMsg" type="text"
+             placeholder="🤖 Bot is going offline…"
+             autocomplete="off" spellcheck="false"
+             oninput="saveField('twitchbot_exit_msg', this.value)">
+    </div>
+
+    <button id="connBtn" class="btn-full btn-purple" onclick="toggleConnect()">
+      Connect
+    </button>
+
+  </div>
+</div>
+
+  <!-- 2. OBS Setup -->
+  <div class="panel" id="panel-obs">
+    <div class="panel-title" onclick="togglePanel('obs')">
+      OBS Setup <span class="chevron">▾</span>
+    </div>
+    <div class="panel-body">
+      <p class="help" style="margin-bottom:6px">
+        <strong>Step 1 — Enable obs-websocket</strong><br>
+        OBS → <strong>Tools → obs-websocket Settings</strong><br>
+        ✔ Enable WebSocket server &nbsp;✔ Disable Authentication<br>
+        Default port: <strong>4455</strong>
+      </p>
+      <div class="two-col">
+        <div class="field">
+          <label>Port</label>
+          <input id="obsPort" type="number" value="4455" min="1" max="65535"
+                 autocomplete="off" oninput="updateOverlayUrl()">
+        </div>
+        <div class="field">
+          <label>Password <span class="opt">(if set)</span></label>
+          <input id="obsPassword" type="password" placeholder="leave blank" autocomplete="off">
+        </div>
+      </div>
+      <button class="btn-full btn-green" onclick="obsConnect()">Connect to OBS WebSocket</button>
+      <div id="obsWsStatus" style="font-size:0.7rem; margin-top:6px; min-height:1em; color:#737380;">
+        Not connected
+      </div>
+
+      <div class="divider" style="margin-top:12px">Step 2 — bot.html dock</div>
+      <p class="help" style="margin-bottom:6px">
+        OBS → <strong>View → Docks → Custom Browser Docks → +</strong><br>
+        Name: <em>Bot Control</em> · URL:
+      </p>
+      <div class="path-row">
+        <input id="botPathInput" type="text" readonly placeholder="loading…">
+        <button class="btn-xs" onclick="copyBotPath()" title="Copy">📋</button>
+      </div>
+
+      <div class="divider">Step 3 — overlay.html browser source</div>
+      <div class="notice">
+        <strong>Why LAN IP?</strong> OBS CEF browser sources block
+        <code>ws://127.0.0.1</code>. Your network IP bypasses this.
+      </div>
+      <div class="field">
+        <label>
+          Your LAN IP
+          <button class="btn-xs" onclick="detectAndFillIP()">Auto-detect</button>
+        </label>
+        <input id="obsLanIP" type="text" placeholder="e.g. 192.168.68.100"
+               autocomplete="off" spellcheck="false"
+               oninput="saveField('twitchbot_lan_ip', this.value); updateOverlayUrl()">
+      </div>
+      <div class="field">
+        <label>Overlay URL <span class="opt">(paste into OBS browser source)</span></label>
+        <div class="path-row">
+          <input id="overlayUrlField" type="text" readonly placeholder="fill LAN IP above">
+          <button class="btn-xs" onclick="copyOverlayUrl()" title="Copy">📋</button>
+        </div>
+      </div>
+      <ol class="steps">
+        <li data-n="1">In OBS scene: <strong>Add → Browser Source</strong></li>
+        <li data-n="2"><strong>Untick</strong> Local file → paste URL above</li>
+        <li data-n="3">Width: <code>1920</code> · Height: <code>1080</code></li>
+        <li data-n="4">Tick <strong>Allow transparency</strong> → OK</li>
+        <li data-n="5">Right-click source name → <strong>Properties → Refresh cache</strong></li>
+      </ol>
+
+      <div class="divider">timer appearance</div>
+      <div class="two-col">
+        <div class="field">
+          <label>Position</label>
+          <select id="selTimerPos" onchange="saveOBSSetting('twitchbot_timer_pos', this.value)">
+            <option value="pos-br">Bottom Right</option>
+            <option value="pos-bl">Bottom Left</option>
+            <option value="pos-tr">Top Right</option>
+            <option value="pos-tl">Top Left</option>
+            <option value="pos-c">Center</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Size</label>
+          <select id="selTimerSize" onchange="saveOBSSetting('twitchbot_timer_size', this.value)">
+            <option value="3.5rem">Small</option>
+            <option value="5rem" selected>Normal</option>
+            <option value="7rem">Large</option>
+            <option value="10rem">X-Large</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 6. How to Connect -->
+  <div class="panel" id="panel-howto">
+    <div class="panel-title" onclick="togglePanel('howto')">
+      How to Connect <span class="chevron">▾</span>
+    </div>
+    <div class="panel-body">
+      <p class="help">
+        <strong>1.</strong> Enter your bot account's username.<br>
+        <strong>2.</strong> Click <em>Get Token ↗</em> →
+        <a href="https://twitchtokengenerator.com" target="_blank" rel="noopener">twitchtokengenerator.com</a>.<br>
+        <strong>3.</strong> Log in as the <em>bot account</em>.<br>
+        <strong>4.</strong> Tick <code>chat:read</code> and <code>chat:edit</code>.<br>
+        <strong>5.</strong> Generate Token → copy <strong>Access Token</strong> → click <em>📋 Paste</em>.<br>
+        <strong>6.</strong> Enter channel and click <em>Connect</em>.
+      </p>
+    </div>
+  </div>
+
+  <!-- 7. Commands File -->
+  <div class="panel" id="panel-cmdfile">
+    <div class="panel-title" onclick="togglePanel('cmdfile')">
+      Commands File <span class="chevron">▾</span>
+    </div>
+    <div class="panel-body">
+      <p class="help" style="margin-bottom:8px">Readable JSON. Auto-saves on every change.</p>
+      <div class="btn-row">
+        <button class="btn-purple" onclick="loadCommandsFromFile()">📂 Load</button>
+        <button class="btn-muted"  onclick="saveCommandsToFile()">💾 Save</button>
+      </div>
+      <div id="fileLabel"></div>
+    </div>
+  </div>
+
+  <!-- 8. Add / Edit Command -->
+  <div class="panel" id="panel-addcmd">
+    <div class="panel-title" onclick="togglePanel('addcmd')">
+      Add Command <span class="chevron">▾</span>
+    </div>
+    <div class="panel-body">
+      <div class="field">
+        <label>Command Name</label>
+        <input id="newName" type="text" placeholder="hug" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label>Type</label>
+        <div class="radio-group">
+          <label><input type="radio" name="cmdType" value="simple" checked onchange="setCmdType('simple')"> Simple</label>
+          <label><input type="radio" name="cmdType" value="overloaded" onchange="setCmdType('overloaded')"> Overloaded</label>
+        </div>
+      </div>
+      <div id="simpleFields">
+        <div class="field">
+          <label>Response</label>
+          <input id="newResp" type="text" placeholder="@user hugs @target" autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+      <div id="overloadedFields" style="display:none">
+        <div class="field">
+          <label>0 targets <span class="opt">(optional)</span></label>
+          <input id="newResp0" type="text" placeholder="@user hugs the air" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field">
+          <label>1 target <span class="opt">(optional)</span></label>
+          <input id="newResp1" type="text" placeholder="@user hugs @target" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field">
+          <label>2+ targets <span class="opt">(optional)</span></label>
+          <input id="newRespN" type="text" placeholder="@user group-hugs @targets" autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="field">
+          <label>Cooldown (s)</label>
+          <input id="newCooldown" type="number" min="0" step="1" value="10" placeholder="10">
+        </div>
+        <div class="field">
+          <label>Permission</label>
+          <select id="newPermission">
+            <option value="everyone">Everyone</option>
+            <option value="vip">VIP+</option>
+            <option value="moderator">Mod+</option>
+            <option value="streamer">Streamer</option>
+          </select>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button id="addCmdBtn"     class="btn-purple" onclick="addCommandUI()">Add Command</button>
+        <button id="cancelEditBtn" class="btn-muted"  onclick="cancelEdit()" style="display:none">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. Chat Commands Reference -->
+  <div class="panel" id="panel-chatcmds">
+    <div class="panel-title" onclick="togglePanel('chatcmds')">
+      Chat Commands Reference <span class="chevron">▾</span>
+    </div>
+    <div class="panel-body">
+      <p class="help">
+        <code>!commands</code> — list (30 s cd)<br>
+        <code>!sounds</code> · <code>!clips</code> — list media (30 s cd)<br>
+        <code>!timer 5:00</code> · <code>pause</code> · <code>resume</code> · <code>reset</code> · <code>stop</code> <em>(mod+)</em><br>
+        <code>!sound &lt;name&gt;</code> — play a sound<br>
+        <code>!clip &lt;name&gt;</code> — play a video clip <em>(mod+)</em><br>
+        <code>!so @user</code> — shoutout a streamer <em>(mod+)</em><br>
+        <code>!addcommand</code> · <code>!removecommand</code> <em>(mod+)</em><br>
+        <code>!setcooldown &lt;name&gt; &lt;s&gt;</code><br>
+        <code>!setpermission &lt;name&gt; &lt;level&gt;</code><br><br>
+        <strong>Placeholders:</strong><br>
+        <code>@user</code> · <code>@target</code> · <code>@targets</code><br>
+        <code>@random</code> — random 1–100<br>
+        <code>@random(min,max)</code> — e.g. <code>@random(1,6)</code>
+      </p>
+    </div>
+  </div>
+
+    <!-- Positioning -->
+  <div class="panel" id="panel-positioning">
+    <div class="panel-title" onclick="togglePanel('positioning')">
+      Positioning <span class="chevron">▾</span>
+    </div>
+    <div class="panel-body">
+
+      <p class="help" style="margin-bottom:8px">
+        Pick an overlay element, then drag it directly on the
+        overlay (in OBS, use Interact), or fine-tune with the
+        arrows below.
+      </p>
+
+      <div class="field">
+        <label>Element</label>
+        <select id="posSelect" onchange="Positioning.onSelectChange()">
+          <option value="">— choose —</option>
+        </select>
+      </div>
+
+      <button id="posEditBtn" class="btn-full btn-teal" disabled
+              onclick="Positioning.toggleEdit()">
+        🖱 Start Positioning
+      </button>
+
+      <div style="display:flex; flex-direction:column; align-items:center;
+                  gap:4px; margin-top:10px">
+        <button class="btn-xs" disabled id="posUp"
+                onclick="Positioning.nudge(0,-1)">▲</button>
+        <div style="display:flex; gap:4px">
+          <button class="btn-xs" disabled id="posLeft"
+                  onclick="Positioning.nudge(-1,0)">◀</button>
+          <button class="btn-xs" disabled id="posReset"
+                  onclick="Positioning.reset()">Reset</button>
+          <button class="btn-xs" disabled id="posRight"
+                  onclick="Positioning.nudge(1,0)">▶</button>
+        </div>
+        <button class="btn-xs" disabled id="posDown"
+                onclick="Positioning.nudge(0,1)">▼</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 10. Active Commands -->
+  <div class="panel" id="panel-activecmds" style="flex:1; border-bottom:none">
+    <div class="panel-title" onclick="togglePanel('activecmds')">
+      Active Commands <span class="chevron">▾</span>
+    </div>
+    <div class="panel-body" style="max-height:none; flex:1">
+      <div id="cmdList"><p class="cmd-empty">No commands added yet.</p></div>
+    </div>
+  </div>
+
+</aside>
+
+<!-- Chat -->
+<div class="chat-wrap">
+  <div id="chatLog">
+    <div class="msg msg-sys">Enter credentials on the left and click Connect.</div>
+  </div>
+  <div class="chat-bar">
+    <input id="chatIn" type="text" placeholder="Send a message to the channel…"
+           onkeydown="if(event.key==='Enter') sendChat()">
+    <button class="btn-purple" onclick="sendChat()">Send</button>
+  </div>
+</div>
+</div>
+
+<!-- Scripts — loaded in dependency order -->
+<script src="js/utils.js"></script>
+<script src="js/state.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/plugins.js"></script>
+<script src="plugins/index.js"></script>
+<script src="js/obs.js"></script>
+<script src="js/positioning.js"></script>
+<script src="js/persistence.js"></script>
+<script src="js/irc.js"></script>
+<script src="js/commands.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/init.js"></script>
+</body>
+</html>

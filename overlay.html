@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bot Overlay</title>
+  <link rel="stylesheet" href="overlay.css">
+</head>
+<body>
+
+  <!-- Timer (injected by timer plugin overlay.js) -->
+
+  <!-- Alert / image / GIF -->
+  <div id="alertWrap" hidden>
+    <img   id="alertImg"   hidden alt="">
+    <video id="alertVideo" hidden autoplay playsinline>
+      <source id="alertVideoSrc" src="" type="video/mp4">
+    </video>
+    <div id="alertText" hidden></div>
+  </div>
+
+  <!-- Full video clips -->
+  <div id="clipWrap" hidden>
+    <video id="clipVideo" autoplay playsinline>
+      <source id="clipVideoSrc" src="" type="video/mp4">
+    </video>
+  </div>
+
+  <!-- Twitch clip iframe embed (shoutout) -->
+  <div id="iframeWrap" hidden>
+    <iframe id="clipIframe"
+            frameborder="0"
+            scrolling="no"
+            allowfullscreen="true">
+    </iframe>
+  </div>
+
+  <!-- Connection status — fades after connect -->
+  <div id="connStatus">⬤ Waiting for OBS WebSocket…</div>
+
+  <!--
+    Silent looping audio.
+    Forces OBS to register this browser source as an audio
+    producer immediately so it appears in the Audio Mixer
+    on first load — before any real sound has played.
+    The base64 data is a valid 0.1-second silent WAV file.
+  -->
+  <audio autoplay loop>
+    <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==" type="audio/wav">
+  </audio>
+
+<!-- Scripts -->
+  <script src="plugins/index.js"></script>  <!-- ← add this -->
+  <script src="overlay.js"></script>
+</body>

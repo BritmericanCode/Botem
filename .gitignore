@@ -1,0 +1,21 @@
+# Personal Twitch bot credentials — never commit, though these
+# are stored in browser localStorage, not written to disk by this
+# app. This is a defensive exclusion in case of manual test files.
+
+# Saved commands file — may contain personal command data/test artifacts
+commands.json
+
+# Downloaded/saved intro audio files — real usernames + real audio
+plugins/intro/intros/*
+!plugins/intro/intros/.gitkeep
+
+# Any local sound/video test files you've dropped in for testing
+sounds/*
+!sounds/.gitkeep
+videos/*
+!videos/.gitkeep
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+*.log

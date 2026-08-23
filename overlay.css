@@ -1,0 +1,158 @@
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+/*
+ * FIX: Force [hidden] to always mean display:none.
+ * Without !important, author-sheet rules like
+ * #alertWrap { display:flex } would override it.
+ */
+[hidden] { display: none !important; }
+
+html, body {
+  width: 100vw; height: 100vh;
+  background: transparent;
+  overflow: hidden;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ── Timer ── */
+#timer {
+  position: fixed;
+  /*
+   * FIX: explicit z-index added to every fixed-position element.
+   * Without z-index, stacking order depends on DOM insertion order.
+   * Plugin elements are injected dynamically so their position in
+   * the DOM is unpredictable — the timer must always render on top.
+   */
+  z-index: 100;
+  display: flex; flex-direction: column;
+  padding: 8px 14px;
+  pointer-events: none; user-select: none;
+}
+
+/*
+ * FIX: replaced percentage offsets with fixed pixels.
+ * The original 3% was asymmetric on a 1920×1080 canvas:
+ *   3% of 1920px  = 57.6px  (horizontal edges)
+ *   3% of 1080px  = 32.4px  (vertical edges)
+ * The timer appeared noticeably closer to horizontal edges than vertical.
+ * Fixed pixel values match the original horizontal distance and apply
+ * it uniformly on all four edges.
+ */
+.pos-tl { top: 32px;    left: 56px;  align-items: flex-start; }
+.pos-tr { top: 32px;    right: 56px; align-items: flex-end;   }
+.pos-bl { bottom: 32px; left: 56px;  align-items: flex-start; }
+.pos-br { bottom: 32px; right: 56px; align-items: flex-end;   }
+.pos-c  { top: 50%; left: 50%; transform: translate(-50%,-50%); align-items: center; }
+
+#timerLabel {
+  /* font-size set dynamically in timer plugin overlay.js (35% of digit size) */
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255,255,255,.9);
+  text-shadow: 0 0 8px #000, 2px 2px 0 #000;
+  margin-bottom: 6px;
+}
+
+#timerTime {
+  /* font-size set dynamically in timer plugin overlay.js */
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: #fff;
+  text-shadow:
+    -3px -3px 0 rgba(0,0,0,.9),  3px -3px 0 rgba(0,0,0,.9),
+    -3px  3px 0 rgba(0,0,0,.9),  3px  3px 0 rgba(0,0,0,.9),
+    0 0 24px rgba(0,0,0,.4);
+}
+
+#timer.urgent   #timerTime { color: #ff4444; animation: pulse .55s ease-in-out infinite alternate; }
+
+/*
+ * NOTE: !important is intentionally kept here.
+ * The timer plugin sets font-size as an inline style, which outranks
+ * a class rule in the cascade.  When the timer plugin's overlay.js is
+ * reviewed, have it clear the inline font-size (el.style.fontSize = '')
+ * before adding class 'finished' so the cascade applies cleanly and
+ * this !important can be removed.
+ */
+#timer.finished #timerTime { color: #ff4444; font-size: 3rem !important; }
+
+@keyframes pulse { from { opacity: 1; } to { opacity: .28; } }
+
+/*
+ * FIX: respect OS-level reduce-motion preference.
+ * The rapid pulse animation can be uncomfortable for users with
+ * vestibular disorders.  A static dim replaces the flash.
+ * The connStatus fade transition is also disabled for the same reason.
+ */
+@media (prefers-reduced-motion: reduce) {
+  #timer.urgent #timerTime { animation: none; opacity: 0.65; }
+  #connStatus              { transition: none; }
+}
+
+/* ── Alerts ── */
+#alertWrap {
+  position: fixed; top: 50%; left: 50%;
+  z-index: 50;   /* FIX: above clips/iframe, below timer */
+  transform: translate(-50%,-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  pointer-events: none; max-width: 82vw;
+}
+#alertImg   { max-width: 80vw; max-height: 55vh; object-fit: contain; border-radius: 6px; }
+#alertVideo { max-width: 80vw; max-height: 55vh; border-radius: 6px; }
+#alertText  {
+  font-size: 2.2rem; font-weight: 900; color: #fff;
+  text-align: center; line-height: 1.3;
+  text-shadow:
+    -3px -3px 0 rgba(0,0,0,.9),  3px -3px 0 rgba(0,0,0,.9),
+    -3px  3px 0 rgba(0,0,0,.9),  3px  3px 0 rgba(0,0,0,.9);
+}
+
+/* ── Video clips ── */
+#clipWrap {
+  position: fixed; inset: 0;
+  z-index: 40;   /* FIX: below alerts */
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+#clipVideo { max-width: 90vw; max-height: 90vh; border-radius: 6px; }
+
+/* ── Connection status ── */
+#connStatus {
+  position: fixed; bottom: 10px; left: 12px;
+  z-index: 10;   /* FIX: lowest overlay element — always behind content */
+  font-size: 0.68rem; font-weight: 600; letter-spacing: .06em;
+  color: rgba(255,255,255,.55);
+  text-shadow: 1px 1px 4px rgba(0,0,0,.9);
+  pointer-events: none;
+  transition: opacity 1.2s ease;
+}
+/*
+ * FIX: removed duplicate `transition` declaration that was on .fade.
+ * The transition is already defined on the base #connStatus rule above.
+ * .fade only needs to declare the target opacity value.
+ */
+#connStatus.fade { opacity: 0; }
+#connStatus.gone { display: none; }
+
+/* ── Twitch clip iframe (shoutout) ── */
+#iframeWrap {
+  position:        fixed;
+  inset:           0;
+  z-index:         40;   /* FIX: same level as clip wrap */
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  pointer-events:  none;
+  background:      rgba(0, 0, 0, 0.72);
+}
+
+#clipIframe {
+  width:          min(960px, 88vw);
+  height:         min(540px, 82vh);
+  border:         none;     /* replaces deprecated frameborder="0" (fixed in overlay.html) */
+  overflow:       hidden;   /* replaces deprecated scrolling="no"  (fixed in overlay.html) */
+  border-radius:  8px;
+  pointer-events: auto;
+}

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bot Auth Helper</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #0e0e10; color: #efeff1;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 30px;
+}
+.card {
+  background: #18181b; border: 1px solid #3a3a3d; border-radius: 8px;
+  padding: 32px 36px; max-width: 480px; width: 100%; text-align: center;
+}
+h1 { font-size: 1.2rem; font-weight: 700; margin-bottom: 6px; }
+.sub { font-size: 0.82rem; color: #737380; margin-bottom: 28px; }
+
+.code-box {
+  font-family: 'Consolas', monospace;
+  font-size: 2.4rem; font-weight: 900; letter-spacing: 0.2em;
+  color: #c8a8ff; background: #0e0e10;
+  border: 2px solid #9147ff; border-radius: 6px;
+  padding: 16px 12px; margin-bottom: 10px;
+  user-select: all; cursor: text;
+}
+.expiry { font-size: 0.74rem; color: #4a4a60; margin-bottom: 28px; }
+
+.steps {
+  text-align: left; font-size: 0.82rem;
+  color: #adadb8; line-height: 2;
+  margin-bottom: 28px;
+}
+.steps a { color: #9147ff; font-weight: 700; }
+.steps .done { color: #1db954; }
+
+.status {
+  font-size: 0.85rem; font-weight: 600;
+  min-height: 1.6em; margin-bottom: 18px;
+  color: #737380;
+}
+.status.ok     { color: #1db954; }
+.status.err    { color: #e05555; }
+.status.active { color: #9147ff; }
+
+button {
+  cursor: pointer; border: none; border-radius: 4px;
+  font-size: 0.85rem; font-weight: 600; padding: 9px 20px;
+  background: #3a3a3d; color: #adadb8;
+  transition: filter .12s;
+}
+button:hover { filter: brightness(1.2); }
+button.purple { background: #9147ff; color: #fff; }
+
+.done-box {
+  display: none;
+  background: #0d1a0d; border: 1px solid #1a4a1a;
+  border-radius: 6px; padding: 16px; margin-bottom: 18px;
+  font-size: 0.82rem; color: #6a9a6a; line-height: 1.7;
+}
+.done-box strong { color: #8aba8a; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Bot Authorisation</h1>
+  <p class="sub">Complete this in a normal browser tab — not inside OBS</p>
+
+  <div id="mainFlow">
+    <div id="codeBox"  class="code-box">--------</div>
+    <div id="expiry"   class="expiry"></div>
+
+    <div class="steps" id="steps">
+      <div id="step1">1. Make sure you are logged into Twitch <strong>as the bot account</strong></div>
+      <div id="step2">2. Go to <a href="https://www.twitch.tv/activate" target="_blank">twitch.tv/activate ↗</a></div>
+      <div id="step3">3. Enter the code above and click <strong>Activate</strong></div>
+      <div id="step4">4. Approve the permissions — this page will update automatically</div>
+    </div>
+
+    <div id="status" class="status active">⏳ Waiting for authorisation…</div>
+    <button onclick="window.close()">Cancel</button>
+  </div>
+
+  <div id="doneBox" class="done-box">
+    <strong>✔ Authorisation complete!</strong><br>
+    The token has been saved. You can close this tab and return to OBS.<br><br>
+    The bot panel will detect the token automatically within a few seconds.
+  </div>
+
+  <div id="errorBox" style="display:none; color:#e05555; font-size:0.82rem; margin-bottom:16px;"></div>
+  <button id="closeBtn" class="purple" style="display:none" onclick="window.close()">
+    Close this tab
+  </button>
+</div>
+
+<script>
+/* ════════════════════════════════════════
+   auth-callback.html
+
+   Opened by TwitchAuth.startDeviceFlow()
+   in a normal Chrome tab where CORS POST
+   requests are not blocked.
+
+   Receives device_code and client_id via
+   URL hash, polls Twitch, and writes the
+   token to a shared localStorage key that
+   bot.html reads every few seconds.
+════════════════════════════════════════ */
+
+const params     = new URLSearchParams(location.hash.slice(1));
+const deviceCode = params.get('device_code') || '';
+const clientId   = params.get('client_id')   || '';
+const userCode   = params.get('user_code')   || '';
+const expiresIn  = parseInt(params.get('expires_in') || '1800');
+const verifyUrl  = params.get('verify_uri')  || 'https://www.twitch.tv/activate';
+let   pollMs     = parseInt(params.get('interval')   || '6') * 1000;
+
+/* Safety — ensure we always wait at least 6 s between polls */
+if (pollMs < 6000) pollMs = 6000;
+
+/* Show the code */
+document.getElementById('codeBox').textContent = userCode || '------';
+
+/* Show expiry countdown */
+const expiresAt = Date.now() + expiresIn * 1000;
+function updateExpiry() {
+  const secs = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
+  const m    = Math.floor(secs / 60), s = secs % 60;
+  document.getElementById('expiry').textContent =
+    secs > 0
+      ? `Expires in ${m}:${String(s).padStart(2,'0')}`
+      : 'Code expired';
+}
+updateExpiry();
+const expiryTick = setInterval(updateExpiry, 1000);
+
+/* Update the verify link */
+document.getElementById('step2').innerHTML =
+  `2. Go to <a href="${verifyUrl}" target="_blank">${verifyUrl} ↗</a>`;
+
+if (!deviceCode || !clientId) {
+  showError('Missing parameters — close this tab and try again from the bot panel.');
+}
+
+/* ── Polling ── */
+let pollTimer = null;
+
+function startPoll() {
+  if (pollTimer) return;
+  pollTimer = setInterval(poll, pollMs);
+}
+
+async function poll() {
+  try {
+    const resp = await fetch('https://id.twitch.tv/oauth2/token', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    new URLSearchParams({
+        client_id:   clientId,
+        device_code: deviceCode,
+        grant_type:  'urn:ietf:params:oauth:grant-type:device_code'
+      })
+    });
+
+    const data = await resp.json();
+
+    if (resp.ok && data.access_token) {
+      onSuccess(data.access_token); return;
+    }
+
+    switch (data.error) {
+      case 'authorization_pending': break;   // keep polling silently
+      case 'slow_down':
+        clearInterval(pollTimer); pollTimer = null;
+        pollMs += 5000; startPoll();
+        break;
+      case 'expired_token':
+        clearInterval(pollTimer); pollTimer = null; clearInterval(expiryTick);
+        showError('Code expired — close this tab and click Authorise again in the bot panel.');
+        break;
+      case 'access_denied':
+        clearInterval(pollTimer); pollTimer = null;
+        showError('Authorisation was denied. Close this tab and try again.');
+        break;
+      default:
+        console.warn('Unexpected poll response:', data);
+    }
+  } catch(e) {
+    /* Network blip — keep polling */
+    console.warn('Poll error:', e);
+  }
+}
+
+function onSuccess(token) {
+  clearInterval(pollTimer);   pollTimer   = null;
+  clearInterval(expiryTick);
+
+  /*
+   * Write to a well-known localStorage key.
+   * bot.html polls this key every 2 s.
+   * The key is removed by bot.html after it reads it.
+   */
+  try {
+    localStorage.setItem('twitchbot_pending_token', 'oauth:' + token);
+  } catch(_) {}
+
+  /* Update UI */
+  document.getElementById('mainFlow').style.display = 'none';
+  document.getElementById('doneBox').style.display  = 'block';
+  document.getElementById('closeBtn').style.display = 'inline-block';
+}
+
+function showError(msg) {
+  document.getElementById('status').textContent  = '';
+  document.getElementById('errorBox').textContent = '✘ ' + msg;
+  document.getElementById('errorBox').style.display = 'block';
+  document.getElementById('closeBtn').style.display = 'inline-block';
+}
+
+/* Start polling */
+if (deviceCode && clientId) startPoll();
+</script>
+</body>
+</html>
