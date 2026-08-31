@@ -321,4 +321,4 @@ const ChatOverlayPlugin = {
     });
   }
 
-});
+};

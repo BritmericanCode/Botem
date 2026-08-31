@@ -28,7 +28,6 @@
   </div>
   <div class="panel-body">
 
-    <!-- Step 1 -->
     <div class="field">
       <label>Bot Username</label>
       <input id="inUser" type="text" placeholder="yourbot"
@@ -36,7 +35,6 @@
              oninput="saveField('twitchbot_user', this.value)">
     </div>
 
-    <!-- Step 2 -->
     <div class="field">
       <label>
         Client ID
@@ -49,16 +47,11 @@
              oninput="saveField('twitchbot_client_id', this.value)">
     </div>
 
-    <!-- Step 3 — button triggers device flow -->
     <button class="btn-full btn-green"
             onclick="TwitchAuth.startDeviceFlow()">
       Authorise with Twitch
     </button>
 
-    <!--
-      Device code box — hidden until startDeviceFlow() shows it.
-      The user visits twitch.tv/activate and enters this code.
-    -->
     <div id="authCodeWrap" hidden>
 
       <p class="auth-code-intro" style="margin-top:10px">
@@ -85,14 +78,8 @@
 
     </div>
 
-    <!-- Status: requesting / waiting / success / error -->
     <div id="authStatus" class="auth-status"></div>
 
-    <!--
-      OAuth Token — filled automatically by the device flow above.
-      Still shown so the user can see it was filled and can paste
-      a manual token if they prefer.
-    -->
     <div class="field" style="margin-top:10px">
       <label>OAuth Token <span id="tokenStatus"></span></label>
       <input id="inOauth" type="password"
@@ -100,7 +87,6 @@
              autocomplete="off" spellcheck="false">
     </div>
 
-    <!-- Step 4 -->
     <div class="field">
       <label>Channel</label>
       <input id="inChan" type="text" placeholder="channelname"
@@ -108,7 +94,6 @@
              oninput="saveField('twitchbot_chan', this.value)">
     </div>
 
-    <!-- Optional messages -->
     <div class="field">
       <label>
         Ready message
@@ -229,7 +214,7 @@
       </div>
     </div>
   </div>
-  
+
   <!-- 6. How to Connect -->
   <div class="panel" id="panel-howto">
     <div class="panel-title" onclick="togglePanel('howto')">
@@ -335,6 +320,7 @@
         <code>!sound &lt;name&gt;</code> — play a sound<br>
         <code>!clip &lt;name&gt;</code> — play a video clip <em>(mod+)</em><br>
         <code>!so @user</code> — shoutout a streamer <em>(mod+)</em><br>
+        <code>!wheel</code> — list wheel options · <code>!spin</code> <em>(mod+)</em><br>
         <code>!addcommand</code> · <code>!removecommand</code> <em>(mod+)</em><br>
         <code>!setcooldown &lt;name&gt; &lt;s&gt;</code><br>
         <code>!setpermission &lt;name&gt; &lt;level&gt;</code><br><br>
@@ -346,7 +332,7 @@
     </div>
   </div>
 
-    <!-- Positioning -->
+  <!-- Positioning -->
   <div class="panel" id="panel-positioning">
     <div class="panel-title" onclick="togglePanel('positioning')">
       Positioning <span class="chevron">▾</span>
@@ -355,8 +341,9 @@
 
       <p class="help" style="margin-bottom:8px">
         Pick an overlay element, then drag it directly on the
-        overlay (in OBS, use Interact), or fine-tune with the
-        arrows below.
+        overlay (in OBS, use Interact). If it supports resizing, a
+        purple handle appears on its bottom-right corner — drag that
+        to resize, or use the buttons below.
       </p>
 
       <div class="field">
@@ -385,6 +372,13 @@
         </div>
         <button class="btn-xs" disabled id="posDown"
                 onclick="Positioning.nudge(0,1)">▼</button>
+      </div>
+
+      <div style="display:flex; justify-content:center; gap:8px; margin-top:10px">
+        <button class="btn-xs" disabled id="posSmaller"
+                onclick="Positioning.resize(-10)">➖ Smaller</button>
+        <button class="btn-xs" disabled id="posBigger"
+                onclick="Positioning.resize(10)">➕ Bigger</button>
       </div>
 
     </div>

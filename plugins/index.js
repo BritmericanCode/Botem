@@ -14,6 +14,7 @@ window.ENABLED_PLUGINS = [
   'announcements',
   'intro',
   'deathcount',
+  'wheel',
 
 ];
 

@@ -101,7 +101,8 @@ OverlayPlugin.register('deathcount', {
   positioning: {
     el:         () => document.getElementById('deathCounter'),
     storageKey: 'twitchbot_pos_deathcount',
-    default:    { xPct: 3, yPct: 3 }
+    default:    { xPct: 3, yPct: 3, scale: 100 },
+    resizable:  true
   },
 
   _apply(state, animate) {

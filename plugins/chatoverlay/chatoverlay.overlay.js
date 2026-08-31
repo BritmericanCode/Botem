@@ -97,7 +97,8 @@ OverlayPlugin.register('chatoverlay', {
   positioning: {
     el:         () => document.getElementById('chatOverlayContainer'),
     storageKey: 'twitchbot_pos_chatoverlay',
-    default:    { xPct: 3, yPct: 70 }
+    default:    { xPct: 3, yPct: 70, scale: 100 },
+    resizable:  true
   },
 
   _onSettingsUpdate(incoming) {

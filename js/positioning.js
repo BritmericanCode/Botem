@@ -5,11 +5,12 @@
    that has declared itself positionable (via
    a `positioning` block on its OverlayPlugin
    registration), then drag it directly on the
-   overlay, or nudge/reset it without dragging.
+   overlay, resize it (if the plugin opted in),
+   or nudge/resize/reset it without dragging.
 
    This is core, not a plugin — it has no
    overlay-side file of its own. The actual
-   drag/nudge/reset logic lives in core
+   drag/resize/nudge/reset logic lives in core
    overlay.js's PositionEditor; this file only
    sends the messages that drive it.
 
@@ -84,7 +85,8 @@ const Positioning = {
   },
 
   _setControlsEnabled(enabled) {
-    ['posEditBtn', 'posUp', 'posDown', 'posLeft', 'posRight', 'posReset'].forEach(id => {
+    ['posEditBtn', 'posUp', 'posDown', 'posLeft', 'posRight',
+     'posReset', 'posBigger', 'posSmaller'].forEach(id => {
       const el = g(id);
       if (el) el.disabled = !enabled;
     });
@@ -93,6 +95,11 @@ const Positioning = {
   nudge(dx, dy) {
     if (!this._selectedId) return;
     sendToOverlay({ type: 'position-nudge', id: this._selectedId, dx, dy });
+  },
+
+  resize(delta) {
+    if (!this._selectedId) return;
+    sendToOverlay({ type: 'position-resize', id: this._selectedId, delta });
   },
 
   reset() {

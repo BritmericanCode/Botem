@@ -103,7 +103,8 @@ OverlayPlugin.register('timer', {
   positioning: {
     el:         () => document.getElementById('timerDisplay'),
     storageKey: 'twitchbot_pos_timer',
-    default:    { xPct: 80, yPct: 80 }
+    default:    { xPct: 80, yPct: 80, scale: 100 },
+    resizable:  true
   },
 
 
