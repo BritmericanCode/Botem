@@ -34,22 +34,31 @@ BotPlugin.define({
     }
   },
 
+  uiTest() {
+    if (typeof sendToOverlay === 'function') {
+      sendToOverlay({ type: 'firstchat-play' });
+    }
+  },
+
   sidebarHtml() {
     return `
       <div class="panel" id="panel-firstchat">
-        <div class="panel-title">
-          <span>👋 First Chat Sound</span>
-          <span class="chevron">▾</span>
+        <div class="panel-title" onclick="togglePanel('firstchat')">
+          First Chat Sound <span class="chevron">▾</span>
         </div>
         <div class="panel-body">
           <p style="opacity:.7;font-size:.85em;margin:0 0 8px;">
             Plays a sound on the overlay whenever someone chats in this
             channel for the very first time — no settings needed.
           </p>
-          <p style="opacity:.7;font-size:.85em;margin:0;">
+          <p style="opacity:.7;font-size:.85em;margin:0 0 8px;">
             Drop your sound file at:<br>
             <code>plugins/firstchat/welcome.mp3</code>
           </p>
+
+          <button class="btn-purple" onclick="BotPlugin.get('firstchat').uiTest()">
+            ▶ Test Sound
+          </button>
         </div>
       </div>`;
   }

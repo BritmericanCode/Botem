@@ -9,18 +9,26 @@
 
    No visual element — this plugin never draws anything on
    screen. It exists purely because overlay.html is the only
-   page OBS actually captures audio/video from (it's loaded
-   as a Browser SOURCE, part of the scene) — bot.html is a
-   Browser DOCK, a control panel only you see, never captured.
-   Any sound needs to be triggered from here to be heard by
-   the stream, same reason Sounds/Intro route through this
-   page's shared AudioContext (getCtx(), defined in core
-   overlay.js) instead of playing locally in the bot window.
+   page OBS actually captures audio/video from.
+
+   IMPLEMENTATION NOTE: deliberately uses a plain Audio
+   element with a relative src, NOT fetch(). Both overlay.html
+   (when OBS's Browser Source points at a Local File) and a
+   directly-double-clicked overlay.html are loaded via file://,
+   and Chromium (including OBS's CEF) blocks fetch() of local
+   relative files from a file:// origin — confirmed by testing
+   both in a raw Chrome file:// tab (explicit CORS error) and
+   in OBS itself (silent failure, no audio meter movement).
+   Assigning src on a real media element uses the browser's
+   native resource loader instead, which is NOT subject to that
+   restriction — this is the same reason core overlay.js's
+   playLocalSound() falls back to `new Audio(...)` on fetch
+   failure, and why the Sounds plugin ships raw bytes over
+   BroadcastChannel rather than ever fetching a local path from
+   inside the overlay page.
 
    Setup: drop an audio file at
      plugins/firstchat/welcome.mp3
-   (any format the browser's decodeAudioData() supports —
-   mp3/wav/ogg/webm/flac all work, same as Sounds/Intro).
    No settings, no chat commands — this plugin just plays
    that one file every time it's triggered.
 ════════════════════════════════════════ */
@@ -33,38 +41,10 @@ OverlayPlugin.register('firstchat', {
   }
 });
 
-/*
- * Fetched and decoded once, then cached — repeat triggers
- * reuse the already-decoded AudioBuffer rather than re-fetching
- * and re-decoding the file every single time (same caching
- * pattern the Sounds plugin uses for its `decoded` Map).
- */
-let _welcomeBufferPromise = null;
-
-async function playWelcomeSound() {
+function playWelcomeSound() {
   try {
-    const ctx = getCtx(); // shared AudioContext from core overlay.js
-
-    if (!_welcomeBufferPromise) {
-      _welcomeBufferPromise = fetch('plugins/firstchat/welcome.mp3')
-        .then(resp => {
-          if (!resp.ok) throw new Error('HTTP ' + resp.status);
-          return resp.arrayBuffer();
-        })
-        .then(buf => ctx.decodeAudioData(buf))
-        .catch(e => {
-          _welcomeBufferPromise = null; // allow retry on next trigger
-          throw e;
-        });
-    }
-
-    const buffer = await _welcomeBufferPromise;
-
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(ctx.destination);
-    source.start(0);
-
+    const el = new Audio('plugins/firstchat/welcome.mp3');
+    el.play().catch(e => console.warn('firstchat: playback blocked/failed:', e));
   } catch(e) {
     console.warn('firstchat: could not play welcome sound:', e);
   }
