@@ -248,6 +248,18 @@ function parseLine(raw) {
        */
       if (nick !== botName) {
         addChat(dname, text, false);
+
+        /*
+         * "first-msg" is Twitch's own IRC tag marking the very first
+         * message a user has ever sent in THIS channel (same signal
+         * that drives the "First time chatting" highlight in Twitch's
+         * own chat UI). Only present because CAP REQ twitch.tv/tags
+         * was requested in onopen.
+         */
+        if (tags['first-msg'] === '1') {
+          BotPlugin.dispatchFirstChat(dname, nick, tags);
+        }
+
         /*
          * handleCommand is async.  Its internal try/catch handles most
          * errors; this .catch() ensures nothing escapes as an uncaught

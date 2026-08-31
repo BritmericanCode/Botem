@@ -15,6 +15,7 @@ window.ENABLED_PLUGINS = [
   'intro',
   'deathcount',
   'wheel',
+  'firstchat',
 
 ];
 

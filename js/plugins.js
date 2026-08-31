@@ -248,6 +248,25 @@ const BotPlugin = {
     }
   },
 
+  /*
+   * Fired once per user, the first time they ever chat in this channel —
+   * mirrors Twitch's own "first-msg" IRC tag (irc.js reads that tag off
+   * the incoming PRIVMSG and calls this directly; it is NOT re-derived
+   * from message history here, so this is only as reliable as Twitch's
+   * own tag delivery — see firstchat plugin notes for caveats).
+   */
+  dispatchFirstChat(dname, nick, tags) {
+    for (const plugin of this._plugins) {
+      if (!this.isEnabled(plugin.id))              continue;
+      if (typeof plugin.onFirstChat !== 'function') continue;
+      try {
+        plugin.onFirstChat({ dname, nick, tags });
+      } catch(e) {
+        console.error(`Plugin "${plugin.id}" onFirstChat error:`, e);
+      }
+    }
+  },
+
   _warn(msg) {
     if (typeof logSys === 'function') logSys('⚠ ' + msg, true);
     else console.warn(msg);
